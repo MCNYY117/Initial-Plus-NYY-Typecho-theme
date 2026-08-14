@@ -1,0 +1,384 @@
+<?php
+if (!defined('__TYPECHO_ROOT_DIR__')) exit;
+use Utils\PasswordHash;
+/**
+ * 文章内加密【使用说明】<b>[password]</b>需要加密的内容<b>[/password]</b> 按照此方法调用文章内加密部分。也可以<b>[password title="文字提示"]</b>需要加密的内容<b>[/password]</b> 高级用法。如果你只配置了一个密码，那么输入这个密码后，所有被加密的内容都可见。  
+如果你配置的密码数量小于加密区块[password]的数量，那么将会产生循环。假设有 `n` 个区块、`m` 个密码，即当 `n>m` 时，第 `m+1` 个区块将会使用第 1 个密码，第 `m+2` 个区块将会使用第 2 个密码，以此类推。第 `i` 个区块实际使用的密码为第 `(i-1)%m+1` 个密码。但我们不推荐这种设置，因为它并不一定能够正常工作。  
+如果你配置的密码数量大于加密区块的数量，多余的密码将被舍弃。
+ * 
+ * @package PartiallyPassword
+ * @author wuxianucw
+ * @version 2.0.2
+ * @link https://ucw.moe
+ */
+class PartiallyPassword_Plugin implements Typecho_Plugin_Interface {
+    /**
+     * 激活插件方法,如果激活失败,直接抛出异常
+     * 
+     * @access public
+     * @return void
+     * @throws Typecho_Plugin_Exception
+     */
+    public static function activate() {
+        Typecho_Plugin::factory('Widget_Abstract_Contents')->filter = array('PartiallyPassword_Plugin', 'render');
+        Typecho_Plugin::factory('Widget_Archive')->singleHandle = array('PartiallyPassword_Plugin', 'handleSubmit');
+        Typecho_Plugin::factory('Widget_Archive')->header = array('PartiallyPassword_Plugin', 'header');
+        Typecho_Plugin::factory('Widget_Archive')->footer = array('PartiallyPassword_Plugin', 'footer');
+    }
+    
+    /**
+     * 禁用插件方法,如果禁用失败,直接抛出异常
+     * 
+     * @static
+     * @access public
+     * @return void
+     * @throws Typecho_Plugin_Exception
+     */
+    public static function deactivate() {}
+    
+    /**
+     * 获取插件配置面板
+     * 
+     * @access public
+     * @param Typecho_Widget_Helper_Form $form 配置面板
+     * @return void
+     */
+    public static function config(Typecho_Widget_Helper_Form $form) {
+        /** Referer 检查 */
+        $form->addInput(new Typecho_Widget_Helper_Form_Element_Select(
+            'checkReferer',
+            array(0 => '关闭', 1 => '开启'),
+            1,
+            _t('Referer 检查'),
+            '若开启，将对每个密码请求进行 Referer 检查。'
+        ));
+
+        /** 自定义页头 HTML */
+        $default = <<<TEXT
+<style>
+.pp-block{text-align:center;margin:10px 0px 10px 0px;padding-bottom:30px;border:1px solid #666;border-left:0px;border-right:0px;}
+.pp-block .jiamiqu{list-style:none;font-size:12px;color:#fff;background-color:#666;padding:4px 5px 4px 5px;float:left;}
+.pp-block .jiamiqumiaoshu{font-weight:bold;list-style:none;margin-top:30px;margin-bottom:5px}
+.pp-block input{text-align:center;border-radius:3px;height:24px;width:40%;vertical-align:middle;}
+.pp-block .ppsubmit{width:50px;}
+.pp-block .ppsubmit:hover{font-weight:bold;text-decoration:none;cursor: pointer;}
+@media(max-width:420px){.pp-block input{width:50%}}
+</style>
+TEXT;
+        $tips = <<<TEXT
+将插入在所有页面的页头（header）。
+TEXT;
+        $form->addInput(new Typecho_Widget_Helper_Form_Element_Textarea('header', NULL, $default, _t('自定义页头 HTML'), $tips));
+
+        /** 自定义页脚 HTML */
+        $default = <<<TEXT
+<script>
+// Powered by wuxianucw
+console.log('PartiallyPassword is enabled.');
+</script>
+TEXT;
+        $tips = <<<TEXT
+将插入在所有页面的页脚（footer）。
+TEXT;
+        $form->addInput(new Typecho_Widget_Helper_Form_Element_Textarea('footer', NULL, $default, _t('自定义页脚 HTML'), $tips));
+
+        /** 密码区域 HTML */
+        $default = <<<TEXT
+<div class="pp-block">
+<li class="jiamiqu iconfont icon-lock">&nbsp;加密区({uniqueId})</li>
+<li class='jiamiqumiaoshu'>{additionalContent}</li>
+<form action="{targetUrl}" method="post" class="ppblock">
+<input name="partiallyPassword" type="password" placeholder="输入密码">
+<input name="pid" type="hidden" value="{id}">
+<input type="submit" value="提交" class="ppsubmit">
+</form>
+</div>
+TEXT;
+        $tips = <<<TEXT
+密码区域的HTML。可以使用的变量包括：
+<ul>
+<li><code>{id}</code>：当前页面加密区块编号</li>
+<li><code>{uniqueId}</code>：当前页面加密区块唯一编号</li>
+<li><code>{additionalContent}</code>：附加信息</li>
+<li><code>{currentPage}</code>：当前页面URL</li>
+<li><code>{targetUrl}</code>：POST提交接口页面URL</li>
+</ul>
+TEXT;
+        $form->addInput(new Typecho_Widget_Helper_Form_Element_Textarea('placeholder', NULL, $default, _t('密码区域 HTML'), $tips));
+
+        //cookie失效时间
+        $form->addInput(new Typecho_Widget_Helper_Form_Element_Text('cookietime',NULL,'60',_t('保存密码时间（单位:分钟）'),'保存密码时间是指输入密码后多久不需要重新输入密码，输入"0"或留空则页面刷新后就需要重新输入密码，默认：60分钟'));
+    }
+    
+    /**
+     * 个人用户的配置面板
+     * 
+     * @access public
+     * @param Typecho_Widget_Helper_Form $form
+     * @return void
+     */
+    public static function personalConfig(Typecho_Widget_Helper_Form $form) {}
+    
+    /**
+     * 自定义输出header
+     * 
+     * @access public
+     * @param string $header
+     * @param Widget_Archive $archive
+     * @return void
+     */
+    public static function header($header,Widget_Archive $archive) {
+        @$header_html = Helper::options()->plugin('PartiallyPassword')->header;
+        if ($header_html) echo $header_html;
+    }
+
+    /**
+     * 自定义输出footer
+     * 
+     * @access public
+     * @param Widget_Archive $archive
+     * @return void
+     */
+    public static function footer(Widget_Archive $archive) {
+        @$footer_html = Helper::options()->plugin('PartiallyPassword')->footer;
+        if ($footer_html) echo $footer_html;
+    }
+
+    /**
+     * 取得请求发送的密码
+     * 
+     * @access private
+     * @param mixed $cid
+     * @param mixed $pid
+     * @param mixed $currentCid
+     * @return string
+     */
+    private static function getRequestPassword($cid, $pid, $currentCid = -1) {
+        if ($currentCid == -1) $currentCid = $cid;
+        $request = new Typecho_Request();
+        $request_pid = isset($request->pid) ? intval($request->pid) : 0;
+        if ($request->isPost() && isset($request->partiallyPassword) && $request_pid === $pid) {
+            if (@Helper::options()->plugin('PartiallyPassword')->checkReferer)
+                if (stripos($request->getReferer(), Helper::options()->rootUrl) !== 0) return;
+            return (new PasswordHash(8, true))->HashPassword($request->partiallyPassword);
+        }
+        return Typecho_Cookie::get("partiallyPassword_{$cid}_{$pid}", '');
+    }
+    
+    /**
+     * 插件实现方法
+     * 
+     * @access public
+     * @param array $value
+     * @param Widget_Abstract_Contents $contents
+     * @return string
+     */
+    public static function render($value, Widget_Abstract_Contents $contents) {
+        if ($value['type'] != 'page' && $value['type'] != 'post') return $value;
+        if (defined('__TYPECHO_ADMIN__')) {
+            if ($value['authorId'] != $contents->widget('Widget_User')->uid && !$contents->widget('Widget_User')->pass('editor', true))
+                $value['hidden'] = true;
+            return $value;
+        }
+        $fields = array();
+        $db = Typecho_Db::get();
+        $rows = $db->fetchAll($db->select()->from('table.fields')->where('cid = ?', $value['cid']));
+        foreach ($rows as $row) {
+            $fields[$row['name']] = $row[$row['type'] . '_value'];
+        }
+        $fields = new Typecho_Config($fields);
+        if ($fields->pp_passwords) {
+            @$pwds = $fields->pp_passwords;
+            $pwds=explode("|",$pwds);
+            $mod = count($pwds);
+            if (!$mod) {
+                $mod = 1;
+                $pwds = array('');
+            }
+            @$placeholder = Helper::options()->plugin('PartiallyPassword')->placeholder;
+            if (!$placeholder) $placeholder = '<div><strong style="color:red">请配置密码区域HTML！</strong></div>';
+            $isMarkdown = strncmp($value['text'], '<!--markdown-->', 15) === 0;
+            if ($isMarkdown) $placeholder = "\n!!!\n{$placeholder}\n!!!\n";
+            $hasher = new PasswordHash(8, true);
+            $value['text'] = preg_replace_callback(
+                '/' . self::getShortcodeRegex('password') . '/',
+                function($matches) use ($contents, $value, $pwds, $mod, $placeholder, $hasher, $isMarkdown) {
+                    static $count = 0;
+                    if ($matches[1] == '[' && $matches[6] == ']') return substr($matches[0], 1, -1); // 不解析类似 [[ppblock]] 双重括号的代码
+                    $now = $count % $mod;
+                    $count++;
+                    $attr = htmlspecialchars_decode($matches[3]); // 还原转义前的参数列表
+                    $attrs = self::shortcodeParseAtts($attr); // 获取短代码的参数
+                    $ex = '';
+                    if (is_array($attrs) && isset($attrs['title'])) {
+						$ex = $attrs['title'];
+					} else {
+						$ex='部分内容已加密';
+					}
+                    $inner = '<hr style="width:100%;border:.5px solid #666;margin:0px auto;padding:0px;"><i style="font-size:12px;background-color:#666;color:#fff;font-style:normal;padding:4px 5px 4px 5px;margin:0px;">加密区('.$count.')</i><br>'.$matches[5].'<br><hr style="width:100%;border:.5px solid #666;margin:0px auto;padding:0px;">';
+                    if ($isMarkdown) $inner = "\n!!!\n{$inner}\n!!!\n";
+                    if ($pwds[$now] == '') return $inner;
+                    $input = self::getRequestPassword($value['cid'], $now, $contents->cid);
+                    if ($input && $hasher->CheckPassword($pwds[$now], $input)) return $inner;
+                    else {
+                        $placeholder = str_replace(
+                            array('{id}', '{uniqueId}', '{currentPage}', '{additionalContent}', '{targetUrl}'),
+                            array($now, $count, ($value['permalink'] ?? ''), $ex, ($value['permalink'] ?? '')),
+                            $placeholder
+                        );
+                        return $placeholder;
+                    }
+                },
+                $value['text']
+            );
+        }
+        return $value;
+    }
+
+    /**主题后台做判断控制
+
+     * 插件自定义字段
+     * 
+     * @access public
+     * @param mixed $layout
+     * @return void
+     
+    public static function pluginFields($layout) {
+        $layout->addItem(new Typecho_Widget_Helper_Form_Element_Select(
+            'pp_isEnabled',
+            array(0 => '关闭', 1 => '开启'),
+            0,
+            _t('是否开启文章部分加密'),
+            '是否对这篇文章启用部分加密功能'
+        ));
+        $layout->addItem(new Typecho_Widget_Helper_Form_Element_Text(
+            'pp_passwords',
+            NULL,
+            '',
+            _t('密码'),
+            '按照文章中调用的顺序定义密码，如果需要多个密码，请在下面定义一个分隔符，然后在相邻密码间用分隔符分隔。详细例子将在下方给出。'
+        ));
+        $layout->addItem(new Typecho_Widget_Helper_Form_Element_Text(
+            'pp_sep',
+            NULL,
+            '',
+            _t('分隔符'),
+            '用于分隔多个密码。例如填写 <code>|</code> 作为分隔符，填写 <code>114514|1919|810</code> 作为密码，则表示依次定义了三个密码：<code>114514</code> <code>1919</code> <code>810</code>。不填写分隔符默认只定义一个密码。'
+        ));
+    }
+	**/
+    /**
+     * 处理密码提交
+     * 
+     * @access public
+     * @param Widget_Archive $archive
+     * @param Typecho_Db_Query $select
+     * @return void
+     */
+    public static function handleSubmit(Widget_Archive $archive, Typecho_Db_Query $select) {
+        if (!$archive->is('page') && !$archive->is('post')) return;
+        if ($archive->fields->pp_passwords && $archive->request->isPost() && isset($archive->request->partiallyPassword)) {
+            $pid = isset($archive->request->pid) ? intval($archive->request->pid) : 0;
+            if ($pid < 0) return;
+            if (@Helper::options()->plugin('PartiallyPassword')->checkReferer)
+                if (stripos($archive->request->getReferer(), Helper::options()->rootUrl) !== 0) return;
+            $cookietime=Typecho_Widget::widget('Widget_Options')->plugin('PartiallyPassword')->cookietime * 60;
+            Typecho_Cookie::set(
+                "partiallyPassword_{$archive->cid}_{$pid}",
+                (new PasswordHash(8, true))->HashPassword($archive->request->partiallyPassword),
+                time()+$cookietime
+            );
+        }
+    }
+
+    /**
+     * 获取匹配短代码的正则表达式
+     * 
+     * @access protected
+     * @param string $tagnames
+     * @return string
+     * @link https://github.com/WordPress/WordPress/blob/master/wp-includes/shortcodes.php#L254
+     */
+    protected static function getShortcodeRegex($tagname) {
+        $tagregexp = preg_quote($tagname);
+        // WARNING! Do not change this regex without changing do_shortcode_tag() and strip_shortcode_tag()
+        // Also, see shortcode_unautop() and shortcode.js.
+        // phpcs:disable Squiz.Strings.ConcatenationSpacing.PaddingFound -- don't remove regex indentation
+        return
+            '\\['                                // Opening bracket
+            . '(\\[?)'                           // 1: Optional second opening bracket for escaping shortcodes: [[tag]]
+            . "($tagregexp)"                     // 2: Shortcode name
+            . '(?![\\w-])'                       // Not followed by word character or hyphen
+            . '('                                // 3: Unroll the loop: Inside the opening shortcode tag
+            .     '[^\\]\\/]*'                   // Not a closing bracket or forward slash
+            .     '(?:'
+            .         '\\/(?!\\])'               // A forward slash not followed by a closing bracket
+            .         '[^\\]\\/]*'               // Not a closing bracket or forward slash
+            .     ')*?'
+            . ')'
+            . '(?:'
+            .     '(\\/)'                        // 4: Self closing tag ...
+            .     '\\]'                          // ... and closing bracket
+            . '|'
+            .     '\\]'                          // Closing bracket
+            .     '(?:'
+            .         '('                        // 5: Unroll the loop: Optionally, anything between the opening and closing shortcode tags
+            .             '[^\\[]*+'             // Not an opening bracket
+            .             '(?:'
+            .                 '\\[(?!\\/\\2\\])' // An opening bracket not followed by the closing shortcode tag
+            .                 '[^\\[]*+'         // Not an opening bracket
+            .             ')*+'
+            .         ')'
+            .         '\\[\\/\\2\\]'             // Closing shortcode tag
+            .     ')?'
+            . ')'
+            . '(\\]?)';                          // 6: Optional second closing brocket for escaping shortcodes: [[tag]]
+        // phpcs:enable
+    }
+
+    /**
+     * 获取短代码属性数组
+     * 
+     * @access protected
+     * @param $text
+     * @return array|string
+     * @link https://github.com/WordPress/WordPress/blob/master/wp-includes/shortcodes.php#L508
+     */
+    protected static function shortcodeParseAtts($text) {
+        $atts = array();
+        $pattern = self::getShortcodeAttsRegex();
+        $text = preg_replace( "/[\x{00a0}\x{200b}]+/u", ' ', $text );
+        if (preg_match_all($pattern, $text, $match, PREG_SET_ORDER)) {
+            foreach ($match as $m) {
+                if (!empty($m[1])) {
+                    $atts[strtolower($m[1])] = stripcslashes($m[2]);
+                } elseif (!empty($m[3])) {
+                    $atts[strtolower($m[3])] = stripcslashes($m[4]);
+                } elseif (!empty($m[5])) {
+                    $atts[strtolower($m[5])] = stripcslashes($m[6]);
+                } elseif (isset($m[7]) && strlen($m[7])) {
+                    $atts[] = stripcslashes($m[7]);
+                } elseif (isset($m[8]) && strlen($m[8])) {
+                    $atts[] = stripcslashes($m[8]);
+                } elseif (isset($m[9])) {
+                    $atts[] = stripcslashes($m[9]);
+                }
+            }
+            // Reject any unclosed HTML elements
+            foreach ($atts as &$value) {
+                if (strpos($value, '<') !== false) {
+                    if (preg_match('/^[^<]*+(?:<[^>]*+>[^<]*+)*+$/', $value) !== 1) {
+                        $value = '';
+                    }
+                }
+            }
+        } else {
+            $atts = ltrim($text);
+        }
+        return $atts;
+    }
+
+    private static function getShortcodeAttsRegex() {
+        return '/([\w-]+)\s*=\s*"([^"]*)"(?:\s|$)|([\w-]+)\s*=\s*\'([^\']*)\'(?:\s|$)|([\w-]+)\s*=\s*([^\s\'"]+)(?:\s|$)|"([^"]*)"(?:\s|$)|\'([^\']*)\'(?:\s|$)|(\S+)(?:\s|$)/';
+    }
+}
