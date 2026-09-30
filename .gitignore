@@ -7,8 +7,7 @@ desktop.ini
 *.swp
 *.swo
 
-# Backups — four of these were committed early on and are still tracked.
-# Remove the tracked ones with:  git rm --cached <file>
+# Backups
 *.bak
 *.bak.*
 *.orig

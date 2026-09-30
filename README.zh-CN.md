@@ -99,23 +99,20 @@ Initial plus 主题中加密插件，已与主题捆绑不可独立使用。如�
 
 ## 已知问题
 
-- **版本号不一致**：`index.php` 标注 `3.7.4`，`functions.php` 里定义 `INITIAL_VERSION_NUMBER = '3.7.5'`。
 - **主题目录名不能改**：`functions.php` 中有几处路径硬编码为 `/usr/themes/initial_plus/lib/*.txt`。
 - **`error_reporting(0)`** 在 `functions.php` 开头全局屏蔽了 PHP 错误，排查问题时建议临时注释掉。
-- 仓库里有 4 个早期提交进来的 `.bak` 文件，其中 `Plugin.php.bak.20260729` 与正式文件完全相同。
 
 ## 许可证与署名
 
 本仓库的 [MIT LICENSE](LICENSE) 覆盖的是 **NYY 在 Initial Plus 基础上所做的修改**。
 
-**上游版权说明（重要）**：本主题是**二次派生**作品 ——
-`jielive/initial` → 阵雨兄的 Initial Plus → 本仓库。
-仓库里以文字和文件头注释的形式保留了上游作者署名（`@author 阵雨兄`、`@link http://blog.alttt.com/`），
-**但上游主题自身的许可证文件并未随仓库附带，其授权条款未知**。
-如果你是上游作者并对此有异议，或打算把这个主题用于再分发，请先确认上游许可。
+本主题是**二次派生**作品 —— `jielive/initial` → 阵雨兄的 Initial Plus → 本仓库。
+上游作者署名以文件头注释的形式保留在源码里（`@author 阵雨兄`、`@link http://blog.alttt.com/`）。
 
-仓库还内置了多个第三方组件（phpqrcode、Fancybox、Bootstrap、jQuery、Prism 等），
-它们各自的许可证与作者见 [NOTICE](NOTICE)。
+本项目作为个人非商业项目公开分享。
+**如果你是本项目任何一部分的作者或权利人，且对它在 GitHub 上公开有任何异议，
+请[提一个 issue](https://github.com/MCNYY117/Initial-Plus-NYY-Typecho-theme/issues) 告诉我，我会将项目删除。**
+详见 [NOTICE](NOTICE)。
 
 ## 相关链接
 

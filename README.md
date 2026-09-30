@@ -2,7 +2,7 @@
 
 **A maintained continuation of the Initial Plus theme for Typecho, brought up to Typecho 1.3.0.**
 
-Initial Plus had not been updated since 2021–2022 and could not run correctly on Typecho 1.3.0. This fork fixes what broke and adds a few things that were missing. It is a **derivative work**, not an original theme — see [Credits and licensing](#credits-and-licensing) before you redistribute it.
+Initial Plus had not been updated since 2021–2022 and could not run correctly on Typecho 1.3.0. This fork fixes what broke and adds a few things that were missing. It is a **derivative work**, not an original theme — see [Credits and licensing](#credits-and-licensing).
 
 **English** · [中文](README.zh-CN.md)
 
@@ -117,10 +117,8 @@ For everything the original theme does, [read the upstream description](https://
 
 ## Known issues
 
-- **Version numbers disagree**: `index.php` says `3.7.4`, `functions.php` defines `INITIAL_VERSION_NUMBER = '3.7.5'`.
 - **The theme directory cannot be renamed** — see the install note above.
 - **`error_reporting(0)`** at the top of `functions.php` suppresses PHP errors site-wide. Comment it out while debugging.
-- Four `.bak` files were committed early on; one of them (`Plugin.php.bak.20260729`) is byte-identical to the live file.
 
 ---
 
@@ -128,15 +126,15 @@ For everything the original theme does, [read the upstream description](https://
 
 The [MIT LICENSE](LICENSE) in this repository covers **NYY's modifications on top of Initial Plus**.
 
-**About the upstream licence — please read before redistributing.** This theme is a second-generation derivative:
+This is a second-generation derivative:
 
 ```
 jielive/initial → Initial Plus (阵雨兄) → this repository
 ```
 
-Upstream authorship is preserved in the source headers and in the README above, **but the upstream theme's own licence file is not included in this repository, and its terms are unknown.** If you are an upstream author and object to this, or if you intend to redistribute this theme, establish the upstream licence first.
+Upstream authorship is preserved in the source file headers and in the [Lineage](#lineage) section above.
 
-Several third-party components are also vendored here (phpqrcode, Fancybox, Bootstrap, jQuery, Prism and others). Their authors and licences are listed in [NOTICE](NOTICE).
+It is published as a personal, non-commercial project. **If you are the author or rights holder of any part of this project and you have any concern about it being published here, please [open an issue](https://github.com/MCNYY117/Initial-Plus-NYY-Typecho-theme/issues) and I will take it down.** See [NOTICE](NOTICE).
 
 ---
 
