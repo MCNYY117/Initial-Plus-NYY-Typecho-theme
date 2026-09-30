@@ -1,0 +1,26 @@
+# Editor and OS scratch
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Backups — four of these were committed early on and are still tracked.
+# Remove the tracked ones with:  git rm --cached <file>
+*.bak
+*.bak.*
+*.orig
+*.rej
+*~
+*.tmp
+
+# Local Typecho installs, in case anyone unpacks the theme next to a site
+usr/
+config.inc.php
+admin/
+install.php
+
+# Logs
+*.log

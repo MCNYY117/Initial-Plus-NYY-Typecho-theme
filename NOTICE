@@ -1,0 +1,93 @@
+Third-party components bundled in this repository
+=================================================
+
+This repository is a derivative of the Initial Plus Typecho theme, and it
+carries several third-party components inside it. Each keeps its own licence.
+The MIT LICENSE at the root covers NYY's own modifications to the theme — it
+does not relicense the components listed here.
+
+Where a component states its licence in its own file header, that is quoted
+below. Where it does not, the licence is noted as "not stated in the bundled
+file" — check the upstream project before relying on it.
+
+
+Project lineage (not a licence statement — see README.md)
+---------------------------------------------------------
+  initial        https://github.com/jielive/initial          (upstream, unmaintained)
+  Initial Plus   http://blog.alttt.com                       (upstream, unmaintained)
+                 The upstream theme's own licence file is NOT included in this
+                 repository and its terms are unknown.
+
+
+PHP libraries — initial_plus/lib/
+---------------------------------
+lib/qrcode.php
+  PHP QR Code — "MERGED version of PHP QR Code library"
+  Copyright (C) 2010 Dominik Dzienia <deltalab at poczta dot fm>
+  Based on the libqrencode C library (LGPL 2.1).
+  Licence: LGPL 3 — stated in the file header, which is reproduced throughout
+  the file. LGPL is a copyleft licence; redistributing this bundle carries
+  obligations that MIT does not.
+
+lib/shortcode.php
+  A port of the WordPress shortcode API.
+  Licence: not stated in the bundled file. WordPress is GPLv2-or-later, but the
+  port itself carries no header — verify before redistribution.
+
+
+JavaScript and CSS — initial_plus/jscss/
+----------------------------------------
+jquery.min.js              jQuery v2.2.4 — banner points to jquery.org/license
+bootstrap.min.js           Bootstrap v3.3.7 — Copyright 2011-2016 Twitter, Inc.
+jquery.lazyload.min.js     Lazy Load 1.9.7 — banner states: MIT licence
+                           Copyright 2010-2015 Mika Tuupola
+jquery.pjax.min.js         Copyright 2012, Chris Wanstrath — banner states:
+                           "Released under the MIT License"
+prism.js / prism.css       PrismJS 1.19.0 — no licence banner in the bundled file
+jquery.fancybox.min.js     fancyBox v3.5.7 — no licence banner in the bundled file
+jquery.fancybox.min.css
+  ★ Fancybox is the one to check. Version 3 is not MIT: upstream distributes it
+    under GPLv3, with a separate commercial licence for closed-source use.
+    Confirm which applies to you before redistributing this theme.
+font/iconfont.*            Bundled icon font (css/svg/ttf/woff/woff2).
+                           No licence banner. Origin not recorded.
+
+The remaining files in jscss/ (style-white.css, style-dark.css,
+style-border-radius.css, weather.js) are the theme's own.
+
+
+Typecho plugins — plugins/
+--------------------------
+PartiallyPassword/Plugin.php   @author wuxianucw  @version 2.0.2  @link https://ucw.moe
+                               The theme's [password] shortcode depends on this
+                               plugin; it is effectively bundled. Licence not
+                               stated in the file.
+Sticky/Plugin.php              @author willin kan  @version 1.0.0
+                               @link http://kan.willin.org/typecho/
+                               Licence not stated in the file.
+
+
+Loaded at runtime from a CDN (not bundled here)
+-----------------------------------------------
+initial_plus/header.php pulls Tabler Icons from jsDelivr, pinned to @latest:
+
+    https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/...
+
+Two things worth knowing: an unpinned @latest can change under you without
+warning, and it means a page load reaches out to a third party — which leaks
+visitor IPs to that CDN and will fail on an air-gapped install. Consider
+vendoring the font instead.
+
+The theme also calls out to these services at runtime:
+  wttr.in            weather in the navbar
+  myip.ipip.net      IP geolocation for the weather background
+  cravatar.cn /      avatar sources (only Cravatar is still working upstream)
+  gravatar.com
+  sinaimg.cn         random background images (lib/bz.txt, lib/dm.txt)
+
+
+Data files
+----------
+initial_plus/lib/bz.txt, lib/dm.txt
+  Lists of image IDs (~3500 and ~700 lines) used for random thumbnails and
+  backgrounds. No licence statement; treat as data of unknown provenance.
